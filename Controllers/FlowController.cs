@@ -1,3 +1,4 @@
+using Cleipnir.ResilientFunctions.Domain;
 using Microsoft.AspNetCore.Mvc;
 using Test.Flows;
 
@@ -18,5 +19,19 @@ public class FlowController : ControllerBase
     public async Task Post(string flowId)
     {
         await _flows.Run(instanceId: flowId, param: flowId);
+    }
+
+    [HttpPut]
+    public async Task RestartFailed(string flowId)
+    {
+        var controlPanel = await _flows.ControlPanel(flowId);
+        if (controlPanel == null) return;
+
+        if (controlPanel.Status == Status.Failed)
+        {
+            controlPanel.Param = "do_not_throw";
+            await controlPanel.RunAgain();
+        }
+            
     }
 }
