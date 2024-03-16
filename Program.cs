@@ -14,6 +14,7 @@ builder.Services.AddSwaggerGen();
 
 var connStr = "Server=localhost;Database=flows;User Id=sa;Password=Pa55word!;Encrypt=True;TrustServerCertificate=True;"; // <- replace with your connection string
 //todo can be used to clear existing data in database: await DatabaseHelper.RecreateDatabase(connStr);
+await DatabaseHelper.RecreateDatabase(connStr);
 builder.Services.UseFlows(connStr, provider => new Options(
     unhandledExceptionHandler: e => provider.GetRequiredService<ILogger>().LogError(e, "Unhandled framework exception"),
     crashedCheckFrequency: TimeSpan.FromSeconds(5)
