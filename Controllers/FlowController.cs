@@ -30,7 +30,7 @@ public class FlowController : ControllerBase
         if (controlPanel.Status == Status.Failed)
         {
             controlPanel.Param = "do_not_throw";
-            await controlPanel.ReInvoke();
+            await controlPanel.Restart();
         }
             
     }

@@ -1,7 +1,7 @@
 using Cleipnir.Flows;
+using Cleipnir.Flows.AspNet;
 using Cleipnir.Flows.SqlServer;
 using Cleipnir.ResilientFunctions.SqlServer;
-using Test.Flows;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -12,14 +12,18 @@ builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
-var connStr = "Server=localhost;Database=flows;User Id=sa;Password=Pa55word!;Encrypt=True;TrustServerCertificate=True;"; // <- replace with your connection string
+var connStr = "Server=localhost;Database=helloworldflows;User Id=sa;Password=Pa55word!;Encrypt=True;TrustServerCertificate=True;"; // <- replace with your connection string
 //todo can be used to clear existing data in database: await DatabaseHelper.RecreateDatabase(connStr);
-await DatabaseHelper.RecreateDatabase(connStr);
-builder.Services.UseFlows(connStr, provider => new Options(
-    unhandledExceptionHandler: e => provider.GetRequiredService<ILogger>().LogError(e, "Unhandled framework exception"),
-    crashedCheckFrequency: TimeSpan.FromSeconds(5)
-));
-builder.Services.AddTransient<HelloWorldFlow>();
+await DatabaseHelper.CreateDatabaseIfNotExists(connStr);
+builder.Services.AddFlows(c => c
+    .UseSqlServerStore(connStr)
+    .WithOptions(sp => new Options(
+            unhandledExceptionHandler: e => sp.GetRequiredService<ILogger>().LogError(e, "Unhandled framework exception"),
+            watchdogCheckFrequency: TimeSpan.FromSeconds(5)
+        )
+    )
+    .RegisterFlowsAutomatically()
+);
 
 var app = builder.Build();
 
