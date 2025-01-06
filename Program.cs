@@ -1,43 +1,60 @@
-using Cleipnir.Flows;
 using Cleipnir.Flows.AspNet;
-using Cleipnir.Flows.SqlServer;
-using Cleipnir.ResilientFunctions.SqlServer;
+using Cleipnir.Flows.HelloWorld.Clients;
+using Cleipnir.Flows.PostgresSql;
+using Cleipnir.ResilientFunctions.PostgreSQL;
+using Serilog;
 
-var builder = WebApplication.CreateBuilder(args);
+namespace Cleipnir.Flows.HelloWorld;
 
-// Add services to the container.
-
-builder.Services.AddControllers();
-// Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
-builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
-
-var connStr = "Server=localhost;Database=helloworldflows;User Id=sa;Password=Pa55word!;Encrypt=True;TrustServerCertificate=True;"; // <- replace with your connection string
-//todo can be used to clear existing data in database: await DatabaseHelper.RecreateDatabase(connStr);
-await DatabaseHelper.CreateDatabaseIfNotExists(connStr);
-builder.Services.AddFlows(c => c
-    .UseSqlServerStore(connStr)
-    .WithOptions(sp => new Options(
-            unhandledExceptionHandler: e => sp.GetRequiredService<ILogger>().LogError(e, "Unhandled framework exception"),
-            watchdogCheckFrequency: TimeSpan.FromSeconds(5)
-        )
-    )
-    .RegisterFlowsAutomatically()
-);
-
-var app = builder.Build();
-
-// Configure the HTTP request pipeline.
-if (app.Environment.IsDevelopment())
+internal static class Program
 {
-    app.UseSwagger();
-    app.UseSwaggerUI();
+    private static async Task Main(string[] args)
+    {
+        Log.Logger = new LoggerConfiguration()
+            .WriteTo.Console()
+            .CreateLogger();
+        
+        var builder = WebApplication.CreateBuilder(args);
+        
+        builder.Host.UseSerilog();
+        builder.Services.AddSingleton<IEmailClient, EmailClientStub>();
+        builder.Services.AddSingleton<ILogisticsClient, LogisticsClientStub>();
+        builder.Services.AddSingleton<IPaymentProviderClient, PaymentProviderClientStub>();
+        
+        const string connectionString = "Server=localhost;Port=5432;Userid=postgres;Password=Pa55word!;Database=flows;";
+        await DatabaseHelper.CreateDatabaseIfNotExists(connectionString); //use to create db initially or clean existing state in database
+        //await DatabaseHelper.RecreateDatabase(connectionString);
+        builder.Services.AddFlows(c => c
+            .UsePostgresStore(connectionString)
+            .WithOptions(new Options(leaseLength: TimeSpan.FromSeconds(5), messagesDefaultMaxWaitForCompletion: TimeSpan.MaxValue))
+            .RegisterFlowsAutomatically()
+        );
+        
+        // Add services to the container.
+        builder.Services.AddControllers();
+
+        builder.Services.AddEndpointsApiExplorer();
+        builder.Services.AddSwaggerGen();
+
+        var app = builder.Build();
+
+        // Configure the HTTP request pipeline.
+        if (app.Environment.IsDevelopment())
+        {
+            app.UseSwagger();
+            app.UseSwaggerUI();
+        }
+
+        app.MapGet("", context =>
+        {
+            context.Response.Redirect("/swagger");
+            return Task.CompletedTask;
+        });
+        
+        app.UseAuthorization();
+
+        app.MapControllers();
+
+        await app.RunAsync();
+    }
 }
-
-app.UseHttpsRedirection();
-
-app.UseAuthorization();
-
-app.MapControllers();
-
-app.Run();
